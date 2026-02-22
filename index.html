@@ -328,6 +328,45 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo } = React;
 
+// ── Cloud Storage via GitHub API ──────────────────────
+const GH_TOKEN = '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';
+const GH_OWNER = 'CoreSight-sa';
+const GH_REPO  = 'coresight-crm';
+const GH_FILE  = 'data/leads.json';
+const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+
+async function ghLoad() {
+  try {
+    const r = await fetch(GH_API + '?t=' + Date.now(), {
+      headers: { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
+    });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error('Load failed: ' + r.status);
+    const j = await r.json();
+    const decoded = decodeURIComponent(escape(atob(j.content.replace(/
+/g,''))));
+    return { data: JSON.parse(decoded), sha: j.sha };
+  } catch(e) { console.error('GH load error', e); return null; }
+}
+
+async function ghSave(leads, sha) {
+  try {
+    const jsonStr = JSON.stringify(leads, null, 2);
+    const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+    const body = { message: 'crm: update leads ' + new Date().toISOString(), content: encoded };
+    if (sha) body.sha = sha;
+    const r = await fetch(GH_API, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${GH_TOKEN}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.message); }
+    const j = await r.json();
+    return j.content.sha;
+  } catch(e) { console.error('GH save error', e); throw e; }
+}
+// ──────────────────────────────────────────────────────
+
 const LEAD_STATUSES = ['New','Contacted','Qualified','Proposal Sent','Negotiation','Won','Lost','Cold'];
 const INDUSTRIES = ['HR Consulting','Training & Development','Talent Acquisition','SHRM/CIPD Prep','Organizational Development','Government','Oil & Gas','Finance','Healthcare','Technology','Retail','Other'];
 const SIZES = ['1-10','11-50','51-200','201-500','501-2000','2000+'];
@@ -391,13 +430,10 @@ function getAIResponse(msg, leads) {
 
 function App() {
   const [view, setView] = useState('leads');
-  const [leads, setLeads] = useState(() => {
-    try {
-      const saved = localStorage.getItem('coresight_leads');
-      if (saved) { const parsed = JSON.parse(saved); if (Array.isArray(parsed) && parsed.length > 0) return parsed; }
-    } catch(e) {}
-    return initialLeads;
-  });
+  const [leads, setLeads] = useState(initialLeads);
+  const [ghSha, setGhSha] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('loading'); // loading | ok | error
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [modalOpen, setModalOpen] = useState(false);
@@ -412,11 +448,47 @@ function App() {
   const [sortDir, setSortDir] = useState('desc');
   const [form, setForm] = useState({});
   const aiEndRef = useRef(null);
+  const saveTimer = useRef(null);
 
-  // Persist leads to localStorage on every change
+  // Load data from GitHub on mount
   useEffect(() => {
-    try { localStorage.setItem('coresight_leads', JSON.stringify(leads)); } catch(e) {}
-  }, [leads]);
+    setSyncStatus('loading');
+    ghLoad().then(res => {
+      if (res && Array.isArray(res.data) && res.data.length > 0) {
+        setLeads(res.data);
+        setGhSha(res.sha);
+        setSyncStatus('ok');
+      } else {
+        // First time - save initial leads to GitHub
+        ghSave(initialLeads, null).then(sha => { setGhSha(sha); setSyncStatus('ok'); });
+      }
+    }).catch(() => setSyncStatus('error'));
+  }, []);
+
+  // Auto-save to GitHub 1.5s after any leads change (debounced)
+  const saveRef = useRef({sha: null, leads: null});
+  saveRef.current = { sha: ghSha, leads, syncStatus };
+  const pendingSave = useRef(false);
+  function scheduleSave() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      if (saveRef.current.syncStatus === 'loading') return;
+      setSyncing(true);
+      setSyncStatus('ok');
+      try {
+        const newSha = await ghSave(saveRef.current.leads, saveRef.current.sha);
+        setGhSha(newSha);
+        setSyncStatus('ok');
+        setSyncing(false);
+      } catch(e) {
+        setSyncing(false);
+        setSyncStatus('error');
+        // fallback: save to localStorage so data isn't lost
+        try { localStorage.setItem('coresight_leads_backup', JSON.stringify(saveRef.current.leads)); } catch(_){}
+        showToast('⚠ Cloud save failed — backed up locally');
+      }
+    }, 1500);
+  }
 
   useEffect(() => { if(aiEndRef.current) aiEndRef.current.scrollIntoView({behavior:'smooth'}); }, [aiMessages]);
 
@@ -450,21 +522,21 @@ function App() {
   const saveLead = () => {
     if (!form.company || !form.contact) return alert('Company and Contact Name are required');
     if (editLead) {
-      setLeads(ls => ls.map(l => l.id===editLead ? {...form, id:editLead} : l));
+      setLeads(ls => { const u = ls.map(l => l.id===editLead ? {...form, id:editLead} : l); setTimeout(scheduleSave,0); return u; });
       if (detailLead?.id === editLead) setDetailLead({...form, id:editLead});
-      showToast('Lead updated successfully');
+      showToast('✓ Lead updated — saving to cloud...');
     } else {
       const nl = {...form, id: Date.now()};
-      setLeads(ls=>[...ls, nl]);
-      showToast('New lead added');
+      setLeads(ls => { const u=[...ls, nl]; setTimeout(scheduleSave,0); return u; });
+      showToast('✓ Lead added — saving to cloud...');
     }
     setModalOpen(false);
   };
   const deleteLead = (id) => {
     if (confirm('Delete this lead?')) {
-      setLeads(ls=>ls.filter(l=>l.id!==id));
+      setLeads(ls => { const u=ls.filter(l=>l.id!==id); setTimeout(scheduleSave,0); return u; });
       if (detailLead?.id===id) setDetailLead(null);
-      showToast('Lead deleted');
+      showToast('✓ Lead deleted — saving to cloud...');
     }
   };
   const toggleSort = (col) => { if (sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc'); } };
@@ -510,12 +582,14 @@ function App() {
         <div className="sidebar-bottom">
           <div className="user-pill">
             <div className="avatar">H</div>
-            <div>
+            <div style={{flex:1}}>
               <div style={{fontSize:'11px',fontWeight:500}}>Hussein</div>
-              <div style={{fontSize:'10px',color:'var(--muted)'}}>{leads.length} leads saved</div>
+              <div style={{fontSize:'10px',color: syncStatus==='ok' ? 'var(--success)' : syncStatus==='error' ? 'var(--danger)' : 'var(--warn)'}}>
+                {syncing ? '⟳ Saving...' : syncStatus==='ok' ? '✓ Cloud synced' : syncStatus==='loading' ? '⟳ Loading...' : '✗ Sync error'}
+              </div>
             </div>
           </div>
-          <div style={{marginTop:8,fontSize:'10px',color:'var(--muted)',textAlign:'center',cursor:'pointer'}} onClick={()=>{if(confirm('Reset to sample data? This will delete all current leads.')){localStorage.removeItem('coresight_leads');setLeads(initialLeads);showToast('Data reset to sample leads');}}} title="Reset data">↺ Reset sample data</div>
+          <div style={{marginTop:8,fontSize:'10px',color:'var(--muted)',textAlign:'center',cursor:'pointer'}} onClick={()=>{if(confirm('Reset to sample data? This will overwrite all leads.')){setLeads(initialLeads);setTimeout(scheduleSave,0);showToast('Reset to sample data');}}} title="Reset data">↺ Reset to sample data</div>
         </div>
       </div>
 
