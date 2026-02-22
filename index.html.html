@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coresight CRM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Nunito:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #f4f1ec;
+    --surface:  #fdfcfa;
+    --surface2: #f0ede6;
+    --border:   #e2ddd5;
+    --border2:  #ccc8bf;
+    --accent:   #5c6bc0;
+    --accent-h: #3f51b5;
+    --accent-soft: rgba(92,107,192,0.09);
+    --teal:     #38847a;
+    --gold:     #b07d3a;
+    --success:  #3a7d5c;
+    --warn:     #b07d3a;
+    --danger:   #b04a4a;
+    --text:     #2c2926;
+    --text2:    #5a5450;
+    --muted:    #9c9590;
+    --shadow:   0 2px 12px rgba(44,41,38,0.07);
+    --shadow-lg:0 8px 32px rgba(44,41,38,0.12);
+    --radius:   12px;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    font-size: 13.5px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  #root { display: flex; min-height: 100vh; }
+
+  /* ── SIDEBAR ─────────────────────────────── */
+  .sidebar {
+    width: 230px; min-height: 100vh;
+    background: #2c2926;
+    display: flex; flex-direction: column;
+    position: fixed; left: 0; top: 0; bottom: 0; z-index: 100;
+  }
+  .logo {
+    padding: 28px 22px 22px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .logo-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 23px; color: #f4f1ec;
+    letter-spacing: -0.3px; font-weight: 600;
+  }
+  .logo-sub {
+    font-size: 10px; color: #a39e98;
+    letter-spacing: 2.5px; text-transform: uppercase; margin-top: 3px;
+    font-weight: 400;
+  }
+  .nav { padding: 18px 14px; flex: 1; }
+  .nav-item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 11px 14px; border-radius: 10px;
+    cursor: pointer; color: #a39e98;
+    transition: all 0.18s; font-size: 13px; font-weight: 500;
+    margin-bottom: 3px;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.07); color: #f4f1ec; }
+  .nav-item.active {
+    background: rgba(92,107,192,0.22);
+    color: #a8b4f0;
+    border-left: 3px solid #7986cb;
+    padding-left: 11px;
+  }
+  .nav-icon { font-size: 15px; opacity: 0.85; }
+  .sidebar-bottom {
+    padding: 16px 14px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+  }
+  .user-pill {
+    display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+    background: rgba(255,255,255,0.06); border-radius: 10px;
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, #7986cb, #4db6ac);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: white;
+  }
+
+  /* ── MAIN ────────────────────────────────── */
+  .main { margin-left: 230px; flex: 1; padding: 32px; min-height: 100vh; background: var(--bg); }
+  .page-header { margin-bottom: 26px; display: flex; align-items: center; justify-content: space-between; }
+  .page-title { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 600; color: var(--text); }
+  .page-sub { color: var(--muted); font-size: 12px; margin-top: 3px; font-weight: 400; }
+
+  /* ── STAT CARDS ──────────────────────────── */
+  .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+    box-shadow: var(--shadow); transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .stat-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+  .stat-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+  .stat-value { font-family: 'Playfair Display', serif; font-size: 27px; margin-top: 5px; font-weight: 600; }
+  .stat-change { font-size: 10px; color: var(--success); margin-top: 4px; }
+
+  /* ── TOOLBAR ─────────────────────────────── */
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .search-box {
+    flex: 1; background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 10px 16px; color: var(--text);
+    font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.2s;
+    box-shadow: var(--shadow);
+  }
+  .search-box::placeholder { color: var(--muted); }
+  .search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(92,107,192,0.12); }
+  .btn {
+    padding: 10px 18px; border-radius: 10px; border: none; cursor: pointer;
+    font-family: inherit; font-size: 13px; transition: all 0.18s; font-weight: 600;
+  }
+  .btn-primary { background: var(--accent); color: white; box-shadow: 0 2px 8px rgba(92,107,192,0.3); }
+  .btn-primary:hover { background: var(--accent-h); box-shadow: 0 4px 14px rgba(92,107,192,0.4); transform: translateY(-1px); }
+  .btn-ghost { background: var(--surface); border: 1.5px solid var(--border); color: var(--text2); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn-danger { background: rgba(176,74,74,0.08); border: 1.5px solid rgba(176,74,74,0.25); color: var(--danger); font-weight: 600; }
+  .btn-danger:hover { background: rgba(176,74,74,0.15); }
+
+  /* ── FILTER CHIPS ────────────────────────── */
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .filter-chip {
+    padding: 5px 14px; border-radius: 20px; border: 1.5px solid var(--border);
+    cursor: pointer; font-size: 12px; color: var(--muted); transition: all 0.18s;
+    background: var(--surface); font-weight: 500;
+  }
+  .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+
+  /* ── TABLE ───────────────────────────────── */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .table-inner { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 1400px; }
+  thead { background: var(--surface2); }
+  th {
+    padding: 13px 16px; text-align: left; font-size: 10.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px; font-weight: 700;
+    border-bottom: 1.5px solid var(--border); white-space: nowrap;
+    cursor: pointer; user-select: none;
+  }
+  th:hover { color: var(--text); }
+  td { padding: 13px 16px; border-bottom: 1px solid var(--border); font-size: 13px; white-space: nowrap; color: var(--text2); }
+  td:first-child { color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(92,107,192,0.04); }
+
+  /* ── BADGES ──────────────────────────────── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  }
+  .badge-new        { background: rgba(92,107,192,0.1);  color: #5c6bc0; border: 1.5px solid rgba(92,107,192,0.2); }
+  .badge-contacted  { background: rgba(56,132,122,0.1);  color: #38847a; border: 1.5px solid rgba(56,132,122,0.2); }
+  .badge-qualified  { background: rgba(176,125,58,0.1);  color: #b07d3a; border: 1.5px solid rgba(176,125,58,0.2); }
+  .badge-proposal   { background: rgba(121,86,163,0.1);  color: #7956a3; border: 1.5px solid rgba(121,86,163,0.2); }
+  .badge-negotiation{ background: rgba(176,90,58,0.1);   color: #b05a3a; border: 1.5px solid rgba(176,90,58,0.2); }
+  .badge-won        { background: rgba(58,125,92,0.12);  color: #3a7d5c; border: 1.5px solid rgba(58,125,92,0.25); }
+  .badge-lost       { background: rgba(176,74,74,0.1);   color: #b04a4a; border: 1.5px solid rgba(176,74,74,0.2); }
+  .badge-cold       { background: rgba(156,149,144,0.1); color: #9c9590; border: 1.5px solid rgba(156,149,144,0.2); }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  /* ── MODAL ───────────────────────────────── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(44,41,38,0.5);
+    z-index: 200; display: flex; align-items: center; justify-content: center;
+    padding: 20px; backdrop-filter: blur(6px);
+    animation: fadeIn 0.15s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; width: 100%; max-width: 860px; max-height: 90vh;
+    overflow-y: auto; animation: slideUp 0.22s ease;
+    box-shadow: var(--shadow-lg);
+  }
+  @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header {
+    padding: 26px 30px; border-bottom: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; }
+  .modal-body { padding: 26px 30px; }
+  .modal-footer { padding: 18px 30px; border-top: 1.5px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: var(--surface2); border-radius: 0 0 16px 16px; }
+  .close-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 22px; line-height: 1; transition: color 0.15s; }
+  .close-btn:hover { color: var(--text); }
+
+  /* ── FORM ────────────────────────────────── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .form-full { grid-column: 1 / -1; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: 0.3px; }
+  .field input, .field select, .field textarea {
+    background: var(--bg); border: 1.5px solid var(--border);
+    border-radius: 9px; padding: 10px 13px; color: var(--text);
+    font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    resize: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(92,107,192,0.1);
+  }
+  .field select option { background: var(--surface); color: var(--text); }
+  .section-divider {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--accent); border-bottom: 1.5px solid var(--border);
+    padding-bottom: 8px; margin: 22px 0 16px;
+  }
+
+  /* ── PIPELINE ────────────────────────────── */
+  .pipeline { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 16px; }
+  .pipeline-col { min-width: 245px; flex-shrink: 0; }
+  .pipeline-head { padding: 11px 16px; border-radius: 10px 10px 0 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .pipeline-body { background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 10px 10px; padding: 10px; min-height: 120px; }
+  .pipeline-card {
+    background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 13px; margin-bottom: 8px; cursor: pointer; transition: all 0.18s;
+    box-shadow: var(--shadow);
+  }
+  .pipeline-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .pipeline-card-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .pipeline-card-company { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .pipeline-card-value { font-size: 12px; color: var(--gold); margin-top: 7px; font-weight: 600; }
+  .pipeline-col-count { font-size: 10px; color: var(--muted); margin-left: auto; }
+
+  /* ── AI PANEL ────────────────────────────── */
+  .ai-panel {
+    position: fixed; right: 0; top: 0; bottom: 0; width: 380px;
+    background: var(--surface); border-left: 1.5px solid var(--border);
+    display: flex; flex-direction: column; z-index: 150;
+    transform: translateX(100%); transition: transform 0.3s ease;
+    box-shadow: -4px 0 24px rgba(44,41,38,0.1);
+  }
+  .ai-panel.open { transform: translateX(0); }
+  .ai-header { padding: 22px; border-bottom: 1.5px solid var(--border); display: flex; align-items: center; gap: 12px; background: var(--surface2); }
+  .ai-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px rgba(58,125,92,0.5); }
+  .ai-messages { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; background: var(--bg); }
+  .msg { max-width: 90%; padding: 11px 15px; border-radius: 12px; font-size: 13px; line-height: 1.65; }
+  .msg-ai { background: var(--surface); border: 1px solid var(--border); align-self: flex-start; color: var(--text); box-shadow: var(--shadow); }
+  .msg-user { background: var(--accent); color: white; align-self: flex-end; box-shadow: 0 2px 8px rgba(92,107,192,0.3); }
+  .ai-input-row { padding: 14px; border-top: 1.5px solid var(--border); display: flex; gap: 8px; background: var(--surface); }
+  .ai-input { flex: 1; background: var(--bg); border: 1.5px solid var(--border); border-radius: 9px; padding: 10px 13px; color: var(--text); font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.2s; }
+  .ai-input:focus { border-color: var(--accent); }
+  .ai-toggle {
+    position: fixed; right: 26px; bottom: 26px; z-index: 160;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: #2c2926;
+    border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; box-shadow: 0 4px 20px rgba(44,41,38,0.25); transition: transform 0.2s;
+    color: #f4f1ec;
+  }
+  .ai-toggle:hover { transform: scale(1.08); }
+
+  /* ── DETAIL PANEL ────────────────────────── */
+  .detail-header-card {
+    background: linear-gradient(135deg, rgba(92,107,192,0.07), rgba(56,132,122,0.07));
+    border: 1.5px solid rgba(92,107,192,0.18); border-radius: 12px; padding: 22px; margin-bottom: 20px;
+  }
+  .detail-name { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; }
+  .detail-meta { display: flex; gap: 18px; margin-top: 10px; flex-wrap: wrap; }
+  .detail-meta-item { font-size: 12px; color: var(--muted); }
+  .detail-meta-item span { color: var(--text2); font-weight: 500; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .info-card { background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 15px; }
+  .info-card-label { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; font-weight: 700; }
+  .info-card-value { font-size: 13.5px; color: var(--text); font-weight: 500; line-height: 1.5; }
+  .prob-bar { height: 5px; background: var(--border); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .prob-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--teal)); transition: width 0.5s; }
+  .timeline { border-left: 2px solid var(--border); padding-left: 18px; }
+  .timeline-item { position: relative; margin-bottom: 18px; }
+  .timeline-dot { position: absolute; left: -23px; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); }
+  .timeline-date { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .timeline-text { font-size: 13px; margin-top: 3px; color: var(--text2); }
+  .tabs { display: flex; gap: 2px; margin-bottom: 20px; border-bottom: 1.5px solid var(--border); }
+  .tab { padding: 9px 18px; cursor: pointer; font-size: 13px; color: var(--muted); border-bottom: 2.5px solid transparent; margin-bottom: -1.5px; transition: all 0.18s; font-weight: 500; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+
+  /* ── CHARTS ──────────────────────────────── */
+  .chart-bar-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .chart-bar-row { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+  .chart-bar-label { width: 90px; color: var(--muted); text-align: right; font-weight: 500; }
+  .chart-bar-track { flex: 1; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .chart-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .chart-bar-val { width: 55px; color: var(--text2); font-weight: 600; font-size: 11.5px; }
+
+  /* ── MISC ────────────────────────────────── */
+  .empty { text-align: center; padding: 52px; color: var(--muted); }
+  .empty-icon { font-size: 42px; margin-bottom: 14px; opacity: 0.4; }
+  .empty-text { font-size: 13.5px; }
+  .action-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .toast {
+    position: fixed; bottom: 96px; right: 26px; z-index: 300;
+    background: #2c2926; color: #c8f0e0;
+    padding: 12px 20px; border-radius: 10px;
+    font-size: 13px; animation: slideUp 0.2s ease;
+    box-shadow: var(--shadow-lg);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .kpi-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 22px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+  .kpi-title { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+  .kpi-value { font-family: 'Playfair Display', serif; font-size: 32px; margin-top: 7px; font-weight: 600; }
+  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+const LEAD_STATUSES = ['New','Contacted','Qualified','Proposal Sent','Negotiation','Won','Lost','Cold'];
+const INDUSTRIES = ['HR Consulting','Training & Development','Talent Acquisition','SHRM/CIPD Prep','Organizational Development','Government','Oil & Gas','Finance','Healthcare','Technology','Retail','Other'];
+const SIZES = ['1-10','11-50','51-200','201-500','501-2000','2000+'];
+const SOURCES = ['LinkedIn','Referral','Website','Conference','Cold Call','Email Campaign','Partner','Other'];
+const SERVICES = ['HR Consulting','Training Programs','SHRM Certification Prep','CIPD Prep','Succession Planning','Workforce Planning','360° Feedback','Employee Engagement','Talent Assessment','OD Consulting'];
+const COUNTRIES = ['Saudi Arabia','UAE','Kuwait','Qatar','Bahrain','Oman','Jordan','Egypt','Other'];
+
+const initialLeads = [
+  { id:1, company:'Al-Majdiah Co.', country:'Saudi Arabia', industry:'HR Consulting', size:'201-500', contact:'Khalid Al-Rashid', title:'HR Director', email:'khalid@almajdiah.com', phone:'+966-11-555-0101', source:'Referral', firstContact:'2025-10-15', lastContact:'2025-12-01', service:'Succession Planning', need:'No structured succession pipeline for critical roles', status:'Proposal Sent', nextAction:'Present final succession policy doc', nextDue:'2026-02-28', collab:'12 months advisory', dealValue:180000, prob:65, owner:'Hussein Al-Hamdan', notes:'Uses Hogan assessments; Very interested in Arabic materials' },
+  { id:2, company:'Qiddiya Investment', country:'Saudi Arabia', industry:'Government', size:'201-500', contact:'Sara Al-Otaibi', title:'Talent Director', email:'sara@qiddiya.com', phone:'+966-11-555-0202', source:'LinkedIn', firstContact:'2025-09-01', lastContact:'2026-01-15', service:'Workforce Planning', need:'Planning for 677 positions across new entertainment city', status:'Negotiation', nextAction:'Finalize scope of work & pricing', nextDue:'2026-02-25', collab:'18 months project', dealValue:420000, prob:80, owner:'Hussein Al-Hamdan', notes:'McKinsey-level presentation required; Key Vision 2030 project' },
+  { id:3, company:'CMA Capital Markets', country:'Saudi Arabia', industry:'Finance', size:'501-2000', contact:'Mohammed Al-Ghamdi', title:'CHRO', email:'mghamdi@cma.gov.sa', phone:'+966-11-555-0303', source:'Conference', firstContact:'2025-11-10', lastContact:'2026-01-20', service:'360° Feedback', need:'Need structured 360 feedback + employee engagement system', status:'Qualified', nextAction:'Send technical proposal', nextDue:'2026-02-26', collab:'6 months implementation', dealValue:95000, prob:55, owner:'Hussein Al-Hamdan', notes:'Government entity; needs full Arabic platform' },
+  { id:4, company:'Saudi Tourism Dev.', country:'Saudi Arabia', industry:'Government', size:'2000+', contact:'Layla Al-Zahrani', title:'L&D Manager', email:'layla@std.gov.sa', phone:'+966-12-555-0404', source:'Website', firstContact:'2025-08-20', lastContact:'2025-11-30', service:'Training Programs', need:'40,000+ beneficiaries across 13 regions for tourism skills', status:'Won', nextAction:'Kick-off meeting schedule', nextDue:'2026-03-01', collab:'24 months national program', dealValue:750000, prob:100, owner:'Hussein Al-Hamdan', notes:'Largest deal to date; SHRM partnership included' },
+  { id:5, company:'Emirates HR Group', country:'UAE', industry:'Training & Development', size:'51-200', contact:'Ahmed Mansouri', title:'CEO', email:'ahmed@emirateshr.ae', phone:'+971-4-555-0505', source:'LinkedIn', firstContact:'2025-12-01', lastContact:'2026-01-10', service:'SHRM Certification Prep', need:'SHRM-CP/SCP prep for 30 HR professionals', status:'Contacted', nextAction:'Discovery call', nextDue:'2026-02-27', collab:'3 months cohort', dealValue:45000, prob:30, owner:'Hussein Al-Hamdan', notes:'Referral from Riyadh client' },
+  { id:6, company:'Gulf Bank', country:'Kuwait', industry:'Finance', size:'501-2000', contact:'Fatima Al-Sabah', title:'OD Manager', email:'fatima@gulfbank.com', phone:'+965-22-555-0606', source:'Cold Call', firstContact:'2026-01-05', lastContact:'2026-01-05', service:'OD Consulting', need:'Post-merger integration & culture alignment', status:'New', nextAction:'Initial discovery email', nextDue:'2026-02-28', collab:'TBD', dealValue:120000, prob:20, owner:'Hussein Al-Hamdan', notes:'Very early stage; needs nurturing' },
+];
+
+function statusBadgeClass(s) {
+  const m = { 'New':'badge-new','Contacted':'badge-contacted','Qualified':'badge-qualified','Proposal Sent':'badge-proposal','Negotiation':'badge-negotiation','Won':'badge-won','Lost':'badge-lost','Cold':'badge-cold' };
+  return 'badge ' + (m[s]||'badge-cold');
+}
+
+function fmt(n) { return n ? '$' + Number(n).toLocaleString() : '-'; }
+function fmtDate(d) { if (!d) return '-'; const dt = new Date(d); return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+
+// AI AGENT RESPONSES
+function getAIResponse(msg, leads) {
+  const m = msg.toLowerCase();
+  const won = leads.filter(l=>l.status==='Won');
+  const total = leads.reduce((s,l)=>s+Number(l.dealValue||0),0);
+  const wonVal = won.reduce((s,l)=>s+Number(l.dealValue||0),0);
+  const pipeline = leads.filter(l=>!['Won','Lost','Cold'].includes(l.status));
+  const pipelineVal = pipeline.reduce((s,l)=>s+Number(l.dealValue||0),0);
+
+  if (m.includes('hello') || m.includes('hi')) return `Hello! I'm your Coresight CRM assistant. You have ${leads.length} total leads with a pipeline value of ${fmt(pipelineVal)}. How can I help?`;
+  if (m.includes('pipeline') || m.includes('value')) return `📊 Pipeline Summary:\n• Total Leads: ${leads.length}\n• Active Pipeline: ${fmt(pipelineVal)} (${pipeline.length} deals)\n• Won Deals: ${fmt(wonVal)}\n• Win Rate: ${Math.round(won.length/leads.length*100)}%`;
+  if (m.includes('won') || m.includes('closed')) return `🏆 Won Deals (${won.length}):\n${won.map(l=>`• ${l.company}: ${fmt(l.dealValue)}`).join('\n')}\nTotal: ${fmt(wonVal)}`;
+  if (m.includes('follow') || m.includes('action') || m.includes('due')) {
+    const due = leads.filter(l=>l.nextDue).sort((a,b)=>a.nextDue.localeCompare(b.nextDue)).slice(0,4);
+    return `📅 Upcoming Actions:\n${due.map(l=>`• ${fmtDate(l.nextDue)} — ${l.company}: ${l.nextAction}`).join('\n')}`;
+  }
+  if (m.includes('negotiat')) {
+    const neg = leads.filter(l=>l.status==='Negotiation');
+    return `⚡ In Negotiation (${neg.length}):\n${neg.map(l=>`• ${l.company}: ${fmt(l.dealValue)} (${l.prob}% probability)`).join('\n')}`;
+  }
+  if (m.includes('highest') || m.includes('biggest') || m.includes('top deal')) {
+    const top = [...leads].sort((a,b)=>b.dealValue-a.dealValue).slice(0,3);
+    return `💰 Top Deals:\n${top.map((l,i)=>`${i+1}. ${l.company}: ${fmt(l.dealValue)} [${l.status}]`).join('\n')}`;
+  }
+  if (m.includes('risk') || m.includes('at risk')) {
+    const risk = leads.filter(l=>l.prob < 40 && !['Won','Lost','Cold'].includes(l.status));
+    return `⚠️ At-Risk Leads (prob < 40%):\n${risk.map(l=>`• ${l.company}: ${l.prob}% — ${l.status}`).join('\n')||'No at-risk leads found.'}`;
+  }
+  if (m.includes('saudi') || m.includes('ksa')) {
+    const ksa = leads.filter(l=>l.country==='Saudi Arabia');
+    return `🇸🇦 Saudi Arabia Leads (${ksa.length}):\n${ksa.map(l=>`• ${l.company}: ${fmt(l.dealValue)} [${l.status}]`).join('\n')}`;
+  }
+  if (m.includes('owner') || m.includes('who')) return `👤 All leads are currently owned by Hussein Al-Hamdan. Pipeline: ${fmt(pipelineVal)}, Closed Won: ${fmt(wonVal)}`;
+  if (m.includes('summary') || m.includes('report')) return `📋 CORESIGHT CRM REPORT\n\nTotal Leads: ${leads.length}\nPipeline Value: ${fmt(pipelineVal)}\nClosed Won: ${fmt(wonVal)}\n\nBy Status:\n${LEAD_STATUSES.map(s=>`• ${s}: ${leads.filter(l=>l.status===s).length}`).filter(s=>!s.endsWith(': 0')).join('\n')}\n\nTop Country: Saudi Arabia (${leads.filter(l=>l.country==='Saudi Arabia').length} leads)`;
+  return `I can help you with: pipeline summary, won deals, upcoming actions, at-risk leads, deal values, by country, or a full report. What would you like to know?`;
+}
+
+function App() {
+  const [view, setView] = useState('leads');
+  const [leads, setLeads] = useState(() => {
+    try {
+      const saved = localStorage.getItem('coresight_leads');
+      if (saved) { const parsed = JSON.parse(saved); if (Array.isArray(parsed) && parsed.length > 0) return parsed; }
+    } catch(e) {}
+    return initialLeads;
+  });
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editLead, setEditLead] = useState(null);
+  const [detailLead, setDetailLead] = useState(null);
+  const [detailTab, setDetailTab] = useState('overview');
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiMessages, setAiMessages] = useState([{ role:'ai', text:"👋 Hi! I'm your Coresight AI assistant. Ask me about your pipeline, deals, follow-ups, or type 'summary' for a full report." }]);
+  const [aiInput, setAiInput] = useState('');
+  const [toast, setToast] = useState(null);
+  const [sortCol, setSortCol] = useState('lastContact');
+  const [sortDir, setSortDir] = useState('desc');
+  const [form, setForm] = useState({});
+  const aiEndRef = useRef(null);
+
+  // Persist leads to localStorage on every change
+  useEffect(() => {
+    try { localStorage.setItem('coresight_leads', JSON.stringify(leads)); } catch(e) {}
+  }, [leads]);
+
+  useEffect(() => { if(aiEndRef.current) aiEndRef.current.scrollIntoView({behavior:'smooth'}); }, [aiMessages]);
+
+  const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 3000); };
+
+  const filteredLeads = useMemo(() => {
+    let ls = leads;
+    if (statusFilter !== 'All') ls = ls.filter(l=>l.status===statusFilter);
+    if (search) {
+      const s = search.toLowerCase();
+      ls = ls.filter(l => [l.company,l.contact,l.industry,l.country,l.service,l.status].some(v=>v?.toLowerCase().includes(s)));
+    }
+    ls = [...ls].sort((a,b) => {
+      let av = a[sortCol], bv = b[sortCol];
+      if (typeof av === 'number') return sortDir==='asc' ? av-bv : bv-av;
+      return sortDir==='asc' ? String(av||'').localeCompare(String(bv||'')) : String(bv||'').localeCompare(String(av||''));
+    });
+    return ls;
+  }, [leads, search, statusFilter, sortCol, sortDir]);
+
+  const stats = useMemo(() => ({
+    total: leads.length,
+    pipeline: leads.filter(l=>!['Won','Lost','Cold'].includes(l.status)).reduce((s,l)=>s+Number(l.dealValue||0),0),
+    won: leads.filter(l=>l.status==='Won').reduce((s,l)=>s+Number(l.dealValue||0),0),
+    winRate: leads.length ? Math.round(leads.filter(l=>l.status==='Won').length/leads.length*100) : 0,
+    avgDeal: leads.length ? Math.round(leads.reduce((s,l)=>s+Number(l.dealValue||0),0)/leads.length) : 0,
+  }), [leads]);
+
+  const openNew = () => { setForm({ status:'New', country:'Saudi Arabia', source:'LinkedIn', industry:'HR Consulting', size:'51-200', prob:20 }); setEditLead(null); setModalOpen(true); };
+  const openEdit = (l) => { setForm({...l}); setEditLead(l.id); setModalOpen(true); };
+  const saveLead = () => {
+    if (!form.company || !form.contact) return alert('Company and Contact Name are required');
+    if (editLead) {
+      setLeads(ls => ls.map(l => l.id===editLead ? {...form, id:editLead} : l));
+      if (detailLead?.id === editLead) setDetailLead({...form, id:editLead});
+      showToast('Lead updated successfully');
+    } else {
+      const nl = {...form, id: Date.now()};
+      setLeads(ls=>[...ls, nl]);
+      showToast('New lead added');
+    }
+    setModalOpen(false);
+  };
+  const deleteLead = (id) => {
+    if (confirm('Delete this lead?')) {
+      setLeads(ls=>ls.filter(l=>l.id!==id));
+      if (detailLead?.id===id) setDetailLead(null);
+      showToast('Lead deleted');
+    }
+  };
+  const toggleSort = (col) => { if (sortCol===col) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortCol(col); setSortDir('asc'); } };
+  const sendAI = () => {
+    if (!aiInput.trim()) return;
+    const userMsg = aiInput.trim();
+    setAiMessages(m=>[...m, {role:'user',text:userMsg}]);
+    setAiInput('');
+    setTimeout(() => {
+      setAiMessages(m=>[...m, {role:'ai',text:getAIResponse(userMsg, leads)}]);
+    }, 600);
+  };
+
+  const pipelineGroups = useMemo(() => {
+    const stages = ['New','Contacted','Qualified','Proposal Sent','Negotiation','Won'];
+    return stages.map(s => ({ status:s, leads: leads.filter(l=>l.status===s) }));
+  }, [leads]);
+
+  const SortIcon = ({col}) => {
+    if (sortCol!==col) return <span style={{color:'#2a3545'}}>↕</span>;
+    return <span style={{color:'var(--accent)'}}>{sortDir==='asc'?'↑':'↓'}</span>;
+  };
+
+  return (
+    <>
+      <div className="sidebar">
+        <div className="logo">
+          <div className="logo-name">Coresight</div>
+          <div className="logo-sub">CRM Agent v1.0</div>
+        </div>
+        <nav className="nav">
+          {[
+            {key:'dashboard',icon:'▦',label:'Dashboard'},
+            {key:'leads',icon:'◈',label:'Leads'},
+            {key:'pipeline',icon:'⊞',label:'Pipeline'},
+            {key:'analytics',icon:'⬡',label:'Analytics'},
+          ].map(n => (
+            <div key={n.key} className={`nav-item ${view===n.key?'active':''}`} onClick={()=>setView(n.key)}>
+              <span className="nav-icon">{n.icon}</span>{n.label}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="user-pill">
+            <div className="avatar">H</div>
+            <div>
+              <div style={{fontSize:'11px',fontWeight:500}}>Hussein</div>
+              <div style={{fontSize:'10px',color:'var(--muted)'}}>{leads.length} leads saved</div>
+            </div>
+          </div>
+          <div style={{marginTop:8,fontSize:'10px',color:'var(--muted)',textAlign:'center',cursor:'pointer'}} onClick={()=>{if(confirm('Reset to sample data? This will delete all current leads.')){localStorage.removeItem('coresight_leads');setLeads(initialLeads);showToast('Data reset to sample leads');}}} title="Reset data">↺ Reset sample data</div>
+        </div>
+      </div>
+
+      <div className="main">
+        {view==='dashboard' && <DashboardView leads={leads} stats={stats} setView={setView} setDetailLead={setDetailLead} />}
+        {view==='leads' && (
+          <>
+            <div className="page-header">
+              <div><div className="page-title">Leads</div><div className="page-sub">{filteredLeads.length} of {leads.length} records</div></div>
+              <button className="btn btn-primary" onClick={openNew}>+ New Lead</button>
+            </div>
+            <div className="stats-grid">
+              <div className="stat-card"><div className="stat-label">Total Leads</div><div className="stat-value">{stats.total}</div></div>
+              <div className="stat-card"><div className="stat-label">Pipeline</div><div className="stat-value" style={{color:'var(--accent)'}}>{fmt(stats.pipeline)}</div></div>
+              <div className="stat-card"><div className="stat-label">Closed Won</div><div className="stat-value" style={{color:'var(--success)'}}>{fmt(stats.won)}</div></div>
+              <div className="stat-card"><div className="stat-label">Win Rate</div><div className="stat-value">{stats.winRate}%</div></div>
+              <div className="stat-card"><div className="stat-label">Avg Deal</div><div className="stat-value">{fmt(stats.avgDeal)}</div></div>
+            </div>
+            <div className="toolbar">
+              <input className="search-box" placeholder="Search company, contact, service..." value={search} onChange={e=>setSearch(e.target.value)} />
+              <button className="btn btn-ghost" onClick={()=>setSearch('')}>Clear</button>
+            </div>
+            <div className="filter-bar">
+              {['All','New','Contacted','Qualified','Proposal Sent','Negotiation','Won','Lost','Cold'].map(s=>(
+                <div key={s} className={`filter-chip ${statusFilter===s?'active':''}`} onClick={()=>setStatusFilter(s)}>{s}</div>
+              ))}
+            </div>
+            <div className="table-wrap">
+              <div className="table-inner">
+                <table>
+                  <thead>
+                    <tr>
+                      {[['company','Company'],['country','Country'],['industry','Industry'],['contact','Contact'],['service','Service'],['status','Status'],['dealValue','Deal Value'],['prob','Prob %'],['nextDue','Next Due'],['lastContact','Last Contact']].map(([col,label])=>(
+                        <th key={col} onClick={()=>toggleSort(col)}>{label} <SortIcon col={col}/></th>
+                      ))}
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.map(l => (
+                      <tr key={l.id}>
+                        <td><span style={{cursor:'pointer',color:'var(--text)',fontWeight:500}} onClick={()=>{setDetailLead(l);setDetailTab('overview');}}>{l.company}</span></td>
+                        <td style={{color:'var(--muted)'}}>{l.country}</td>
+                        <td style={{color:'var(--muted)'}}>{l.industry}</td>
+                        <td>
+                          <div style={{fontWeight:500}}>{l.contact}</div>
+                          <div style={{fontSize:'10px',color:'var(--muted)'}}>{l.title}</div>
+                        </td>
+                        <td style={{color:'var(--muted)',maxWidth:'150px',overflow:'hidden',textOverflow:'ellipsis'}}>{l.service}</td>
+                        <td><span className={statusBadgeClass(l.status)}><span className="dot"/>  {l.status}</span></td>
+                        <td style={{color:'var(--gold)',fontWeight:500}}>{fmt(l.dealValue)}</td>
+                        <td>
+                          <div style={{display:'flex',alignItems:'center',gap:6}}>
+                            {l.prob}%
+                            <div style={{width:40,height:4,background:'var(--border)',borderRadius:2,overflow:'hidden'}}>
+                              <div style={{width:`${l.prob}%`,height:'100%',background:'var(--accent)',borderRadius:2}}/>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{color: new Date(l.nextDue) < new Date() ? 'var(--danger)' : 'var(--muted)'}}>{fmtDate(l.nextDue)}</td>
+                        <td style={{color:'var(--muted)'}}>{fmtDate(l.lastContact)}</td>
+                        <td>
+                          <div style={{display:'flex',gap:6}}>
+                            <button className="btn btn-ghost btn-sm" onClick={()=>{setDetailLead(l);setDetailTab('overview');}}>View</button>
+                            <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(l)}>Edit</button>
+                            <button className="btn btn-danger btn-sm" onClick={()=>deleteLead(l.id)}>×</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredLeads.length===0 && (
+                      <tr><td colSpan={11}><div className="empty"><div className="empty-icon">◎</div><div className="empty-text">No leads found</div></div></td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+        {view==='pipeline' && <PipelineView groups={pipelineGroups} onCard={(l)=>{setDetailLead(l);setDetailTab('overview');setView('leads');}} />}
+        {view==='analytics' && <AnalyticsView leads={leads} stats={stats} />}
+      </div>
+
+      {/* LEAD DETAIL PANEL */}
+      {detailLead && (
+        <div className="overlay" onClick={e=>e.target===e.currentTarget&&setDetailLead(null)}>
+          <div className="modal" style={{maxWidth:760}}>
+            <div className="modal-header">
+              <div className="modal-title">{detailLead.company}</div>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(detailLead)}>Edit</button>
+                <button className="close-btn" onClick={()=>setDetailLead(null)}>×</button>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div className="detail-header-card">
+                <span className={statusBadgeClass(detailLead.status)}><span className="dot"/> {detailLead.status}</span>
+                <div className="detail-name" style={{marginTop:8}}>{detailLead.contact}</div>
+                <div style={{fontSize:'12px',color:'var(--muted)',marginTop:4}}>{detailLead.title} · {detailLead.company}</div>
+                <div className="detail-meta" style={{marginTop:12}}>
+                  <div className="detail-meta-item">📧 <span>{detailLead.email}</span></div>
+                  <div className="detail-meta-item">📞 <span>{detailLead.phone}</span></div>
+                  <div className="detail-meta-item">🌍 <span>{detailLead.country}</span></div>
+                  <div className="detail-meta-item">🏢 <span>{detailLead.industry}</span></div>
+                </div>
+              </div>
+              <div className="tabs">
+                {['overview','deal','activity'].map(t=>(
+                  <div key={t} className={`tab ${detailTab===t?'active':''}`} onClick={()=>setDetailTab(t)}>{t.charAt(0).toUpperCase()+t.slice(1)}</div>
+                ))}
+              </div>
+              {detailTab==='overview' && (
+                <div className="info-grid">
+                  {[
+                    {l:'Lead Source',v:detailLead.source},
+                    {l:'First Contact',v:fmtDate(detailLead.firstContact)},
+                    {l:'Last Contact',v:fmtDate(detailLead.lastContact)},
+                    {l:'Company Size',v:detailLead.size+' employees'},
+                    {l:'Service Offered',v:detailLead.service},
+                    {l:'Collaboration',v:detailLead.collab||'TBD'},
+                  ].map(({l,v})=>(
+                    <div key={l} className="info-card"><div className="info-card-label">{l}</div><div className="info-card-value">{v||'-'}</div></div>
+                  ))}
+                  <div className="info-card form-full"><div className="info-card-label">Client Need / Pain Point</div><div className="info-card-value" style={{lineHeight:1.6}}>{detailLead.need||'-'}</div></div>
+                  <div className="info-card form-full"><div className="info-card-label">Notes</div><div className="info-card-value" style={{lineHeight:1.6}}>{detailLead.notes||'-'}</div></div>
+                </div>
+              )}
+              {detailTab==='deal' && (
+                <div>
+                  <div className="info-grid">
+                    {[
+                      {l:'Deal Value',v:fmt(detailLead.dealValue),c:'var(--gold)'},
+                      {l:'Probability',v:detailLead.prob+'%',c:'var(--accent)'},
+                      {l:'Expected Value',v:fmt(Math.round(detailLead.dealValue*detailLead.prob/100)),c:'var(--success)'},
+                    ].map(({l,v,c})=>(
+                      <div key={l} className="info-card"><div className="info-card-label">{l}</div><div className="info-card-value" style={{fontSize:20,fontFamily:'DM Serif Display',color:c}}>{v}</div></div>
+                    ))}
+                  </div>
+                  <div className="info-card" style={{marginBottom:16}}>
+                    <div className="info-card-label">Win Probability</div>
+                    <div className="prob-bar" style={{marginTop:12,height:8}}><div className="prob-fill" style={{width:detailLead.prob+'%'}}/></div>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--muted)',marginTop:6}}><span>0%</span><span>{detailLead.prob}%</span><span>100%</span></div>
+                  </div>
+                  <div className="info-grid">
+                    {[
+                      {l:'Next Action',v:detailLead.nextAction},
+                      {l:'Next Due Date',v:fmtDate(detailLead.nextDue)},
+                    ].map(({l,v})=>(
+                      <div key={l} className="info-card"><div className="info-card-label">{l}</div><div className="info-card-value">{v||'-'}</div></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {detailTab==='activity' && (
+                <div className="timeline">
+                  {[
+                    {date:detailLead.firstContact,text:`First contact via ${detailLead.source}`},
+                    {date:detailLead.lastContact,text:`Last interaction — Status: ${detailLead.status}`},
+                    {date:detailLead.nextDue,text:`Upcoming: ${detailLead.nextAction}`},
+                  ].filter(a=>a.date).sort((a,b)=>a.date.localeCompare(b.date)).map((a,i)=>(
+                    <div key={i} className="timeline-item">
+                      <div className="timeline-dot"/>
+                      <div className="timeline-date">{fmtDate(a.date)}</div>
+                      <div className="timeline-text">{a.text}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD/EDIT MODAL */}
+      {modalOpen && (
+        <div className="overlay" onClick={e=>e.target===e.currentTarget&&setModalOpen(false)}>
+          <div className="modal">
+            <div className="modal-header">
+              <div className="modal-title">{editLead ? 'Edit Lead' : 'New Lead'}</div>
+              <button className="close-btn" onClick={()=>setModalOpen(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="section-divider">Company Information</div>
+              <div className="form-grid">
+                <div className="field"><label>Company Name *</label><input value={form.company||''} onChange={e=>setForm(f=>({...f,company:e.target.value}))} placeholder="Al-Majdiah Company"/></div>
+                <div className="field"><label>Country</label><select value={form.country||''} onChange={e=>setForm(f=>({...f,country:e.target.value}))}><option value="">Select...</option>{COUNTRIES.map(c=><option key={c}>{c}</option>)}</select></div>
+                <div className="field"><label>Industry</label><select value={form.industry||''} onChange={e=>setForm(f=>({...f,industry:e.target.value}))}>{INDUSTRIES.map(i=><option key={i}>{i}</option>)}</select></div>
+                <div className="field"><label>Company Size</label><select value={form.size||''} onChange={e=>setForm(f=>({...f,size:e.target.value}))}>{SIZES.map(s=><option key={s}>{s}</option>)}</select></div>
+              </div>
+              <div className="section-divider">Contact Information</div>
+              <div className="form-grid">
+                <div className="field"><label>Contact Name *</label><input value={form.contact||''} onChange={e=>setForm(f=>({...f,contact:e.target.value}))} placeholder="Full Name"/></div>
+                <div className="field"><label>Job Title</label><input value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="HR Director"/></div>
+                <div className="field"><label>Email</label><input type="email" value={form.email||''} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="name@company.com"/></div>
+                <div className="field"><label>Phone</label><input value={form.phone||''} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="+966-11-555-XXXX"/></div>
+              </div>
+              <div className="section-divider">Lead Details</div>
+              <div className="form-grid">
+                <div className="field"><label>Lead Source</label><select value={form.source||''} onChange={e=>setForm(f=>({...f,source:e.target.value}))}>{SOURCES.map(s=><option key={s}>{s}</option>)}</select></div>
+                <div className="field"><label>Status</label><select value={form.status||''} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>{LEAD_STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+                <div className="field"><label>First Contact Date</label><input type="date" value={form.firstContact||''} onChange={e=>setForm(f=>({...f,firstContact:e.target.value}))}/></div>
+                <div className="field"><label>Last Contact Date</label><input type="date" value={form.lastContact||''} onChange={e=>setForm(f=>({...f,lastContact:e.target.value}))}/></div>
+                <div className="field form-full"><label>Entry Service / Offer Discussed</label><select value={form.service||''} onChange={e=>setForm(f=>({...f,service:e.target.value}))}><option value="">Select service...</option>{SERVICES.map(s=><option key={s}>{s}</option>)}</select></div>
+                <div className="field form-full"><label>Client Need / Pain Point</label><textarea rows={2} value={form.need||''} onChange={e=>setForm(f=>({...f,need:e.target.value}))} placeholder="Describe the client's main challenge..."/></div>
+              </div>
+              <div className="section-divider">Deal Information</div>
+              <div className="form-grid-3">
+                <div className="field"><label>Expected Deal Value ($)</label><input type="number" value={form.dealValue||''} onChange={e=>setForm(f=>({...f,dealValue:Number(e.target.value)}))} placeholder="100000"/></div>
+                <div className="field"><label>Probability (%)</label><input type="number" min="0" max="100" value={form.prob||''} onChange={e=>setForm(f=>({...f,prob:Number(e.target.value)}))} placeholder="50"/></div>
+                <div className="field"><label>Owner</label><input value={form.owner||''} onChange={e=>setForm(f=>({...f,owner:e.target.value}))} placeholder="Hussein Al-Hamdan"/></div>
+                <div className="field"><label>Expected Collaboration</label><input value={form.collab||''} onChange={e=>setForm(f=>({...f,collab:e.target.value}))} placeholder="12 months advisory"/></div>
+                <div className="field"><label>Next Action</label><input value={form.nextAction||''} onChange={e=>setForm(f=>({...f,nextAction:e.target.value}))} placeholder="Send proposal"/></div>
+                <div className="field"><label>Next Action Due Date</label><input type="date" value={form.nextDue||''} onChange={e=>setForm(f=>({...f,nextDue:e.target.value}))}/></div>
+                <div className="field form-full"><label>Notes</label><textarea rows={2} value={form.notes||''} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Additional notes..."/></div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-ghost" onClick={()=>setModalOpen(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveLead}>{editLead?'Update Lead':'Add Lead'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI PANEL */}
+      <div className={`ai-panel ${aiOpen?'open':''}`}>
+        <div className="ai-header">
+          <div className="ai-dot"/>
+          <div>
+            <div style={{fontWeight:600,fontSize:13}}>Coresight AI Agent</div>
+            <div style={{fontSize:10,color:'var(--muted)'}}>Online · Analyzing {leads.length} leads</div>
+          </div>
+          <button className="close-btn" style={{marginLeft:'auto'}} onClick={()=>setAiOpen(false)}>×</button>
+        </div>
+        <div className="ai-messages">
+          {aiMessages.map((m,i)=>(
+            <div key={i} className={`msg ${m.role==='ai'?'msg-ai':'msg-user'}`} style={{whiteSpace:'pre-line'}}>{m.text}</div>
+          ))}
+          <div ref={aiEndRef}/>
+        </div>
+        <div style={{padding:'8px 14px',display:'flex',gap:6,flexWrap:'wrap',borderTop:'1px solid var(--border)'}}>
+          {['pipeline summary','top deals','follow-ups','at risk'].map(q=>(
+            <button key={q} className="btn btn-ghost btn-sm" onClick={()=>{setAiInput(q);}}>{q}</button>
+          ))}
+        </div>
+        <div className="ai-input-row">
+          <input className="ai-input" placeholder="Ask about your pipeline..." value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&sendAI()}/>
+          <button className="btn btn-primary btn-sm" onClick={sendAI}>↑</button>
+        </div>
+      </div>
+      <button className="ai-toggle" onClick={()=>setAiOpen(o=>!o)} title="AI Assistant">
+        {aiOpen ? '✕' : '⬡'}
+      </button>
+
+      {toast && <div className="toast">✓ {toast}</div>}
+    </>
+  );
+}
+
+function DashboardView({leads, stats, setView, setDetailLead}) {
+  const statuses = LEAD_STATUSES.map(s=>({s,count:leads.filter(l=>l.status===s).length})).filter(x=>x.count>0);
+  const maxCount = Math.max(...statuses.map(x=>x.count));
+  const urgentLeads = leads.filter(l=>l.nextDue && new Date(l.nextDue) <= new Date(Date.now()+3*24*60*60*1000) && !['Won','Lost'].includes(l.status));
+  const topDeals = [...leads].sort((a,b)=>b.dealValue-a.dealValue).slice(0,4);
+  const totalPipeline = leads.filter(l=>!['Won','Lost','Cold'].includes(l.status)).reduce((s,l)=>s+l.dealValue*l.prob/100,0);
+
+  const colors = {'New':'#3b82f6','Contacted':'#06b6d4','Qualified':'#f59e0b','Proposal Sent':'#a855f7','Negotiation':'#f97316','Won':'#10b981','Lost':'#ef4444','Cold':'#64748b'};
+
+  return (
+    <>
+      <div className="page-header">
+        <div><div className="page-title">Dashboard</div><div className="page-sub">Coresight CRM — Business Intelligence</div></div>
+      </div>
+      <div className="kpi-row">
+        <div className="kpi-card"><div className="kpi-title">Total Pipeline</div><div className="kpi-value" style={{color:'var(--accent)'}}>${(stats.pipeline/1000).toFixed(0)}K</div><div className="kpi-sub">{leads.filter(l=>!['Won','Lost','Cold'].includes(l.status)).length} active deals</div></div>
+        <div className="kpi-card"><div className="kpi-title">Expected Revenue</div><div className="kpi-value" style={{color:'var(--success)'}}>${(totalPipeline/1000).toFixed(0)}K</div><div className="kpi-sub">Probability-weighted</div></div>
+        <div className="kpi-card"><div className="kpi-title">Win Rate</div><div className="kpi-value">{stats.winRate}%</div><div className="kpi-sub">{leads.filter(l=>l.status==='Won').length} deals closed</div></div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+        <div className="table-wrap">
+          <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border)',fontSize:'11px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px'}}>Lead Status Distribution</div>
+          <div style={{padding:'16px 18px'}}>
+            <div className="chart-bar-wrap">
+              {statuses.map(({s,count})=>(
+                <div key={s} className="chart-bar-row">
+                  <div className="chart-bar-label">{s}</div>
+                  <div className="chart-bar-track"><div className="chart-bar-fill" style={{width:`${count/maxCount*100}%`,background:colors[s]||'var(--accent)'}}/></div>
+                  <div className="chart-bar-val">{count}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border)',fontSize:'11px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px'}}>Top Deals by Value</div>
+          <div style={{padding:'8px'}}>
+            {topDeals.map(l=>(
+              <div key={l.id} style={{padding:'10px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',borderRadius:6,cursor:'pointer'}} onClick={()=>{setDetailLead(l);}} className="pipeline-card">
+                <div>
+                  <div style={{fontWeight:500,fontSize:12}}>{l.company}</div>
+                  <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{l.status} · {l.prob}%</div>
+                </div>
+                <div style={{color:'var(--gold)',fontWeight:600,fontSize:13}}>${(l.dealValue/1000).toFixed(0)}K</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      {urgentLeads.length > 0 && (
+        <div className="table-wrap">
+          <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
+            <span style={{color:'var(--warn)',fontSize:14}}>⚠</span>
+            <span style={{fontSize:'11px',color:'var(--warn)',textTransform:'uppercase',letterSpacing:'1px'}}>Urgent Actions ({urgentLeads.length})</span>
+          </div>
+          <div style={{padding:'8px'}}>
+            {urgentLeads.map(l=>(
+              <div key={l.id} className="pipeline-card" style={{display:'flex',justifyContent:'space-between',cursor:'pointer'}} onClick={()=>setDetailLead(l)}>
+                <div>
+                  <div style={{fontWeight:500,fontSize:12}}>{l.company}</div>
+                  <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{l.nextAction}</div>
+                </div>
+                <div style={{color:'var(--danger)',fontSize:11}}>{fmtDate(l.nextDue)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function PipelineView({groups, onCard}) {
+  const colors = {'New':'#3b82f6','Contacted':'#06b6d4','Qualified':'#f59e0b','Proposal Sent':'#a855f7','Negotiation':'#f97316','Won':'#10b981'};
+  return (
+    <>
+      <div className="page-header"><div><div className="page-title">Pipeline</div><div className="page-sub">Kanban view by deal stage</div></div></div>
+      <div className="pipeline">
+        {groups.map(({status,leads})=>(
+          <div key={status} className="pipeline-col">
+            <div className="pipeline-head" style={{background:colors[status]+'22',color:colors[status],border:`1px solid ${colors[status]}44`}}>
+              <div style={{display:'flex',justifyContent:'space-between'}}>
+                <span>{status}</span><span className="pipeline-col-count">{leads.length}</span>
+              </div>
+              {leads.length > 0 && <div style={{fontSize:'10px',marginTop:2,opacity:.7}}>${(leads.reduce((s,l)=>s+l.dealValue,0)/1000).toFixed(0)}K</div>}
+            </div>
+            <div className="pipeline-body">
+              {leads.map(l=>(
+                <div key={l.id} className="pipeline-card" onClick={()=>onCard(l)}>
+                  <div className="pipeline-card-name">{l.contact}</div>
+                  <div className="pipeline-card-company">{l.company}</div>
+                  <div className="pipeline-card-value">{fmt(l.dealValue)}</div>
+                  <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>{l.prob}% · {fmtDate(l.nextDue)}</div>
+                </div>
+              ))}
+              {leads.length===0 && <div style={{textAlign:'center',color:'var(--muted)',fontSize:11,padding:'20px 0'}}>No leads</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function AnalyticsView({leads, stats}) {
+  const byCountry = COUNTRIES.slice(0,-1).map(c=>({c,val:leads.filter(l=>l.country===c).reduce((s,l)=>s+l.dealValue,0)})).filter(x=>x.val).sort((a,b)=>b.val-a.val);
+  const byIndustry = INDUSTRIES.map(i=>({i,count:leads.filter(l=>l.industry===i).length})).filter(x=>x.count).sort((a,b)=>b.count-a.count);
+  const maxVal = Math.max(...byCountry.map(x=>x.val));
+  const maxInd = Math.max(...byIndustry.map(x=>x.count));
+  return (
+    <>
+      <div className="page-header"><div><div className="page-title">Analytics</div><div className="page-sub">Performance insights</div></div></div>
+      <div className="stats-grid">
+        <div className="stat-card"><div className="stat-label">Total Portfolio</div><div className="stat-value" style={{color:'var(--text)'}}>{fmt(leads.reduce((s,l)=>s+l.dealValue,0))}</div></div>
+        <div className="stat-card"><div className="stat-label">Won Revenue</div><div className="stat-value" style={{color:'var(--success)'}}>{fmt(stats.won)}</div></div>
+        <div className="stat-card"><div className="stat-label">Active Pipeline</div><div className="stat-value" style={{color:'var(--accent)'}}>{fmt(stats.pipeline)}</div></div>
+        <div className="stat-card"><div className="stat-label">Conversion Rate</div><div className="stat-value">{stats.winRate}%</div></div>
+        <div className="stat-card"><div className="stat-label">Avg Deal Size</div><div className="stat-value">{fmt(stats.avgDeal)}</div></div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+        <div className="table-wrap">
+          <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border)',fontSize:'11px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px'}}>Deal Value by Country</div>
+          <div style={{padding:'16px 18px'}}>
+            {byCountry.map(({c,val})=>(
+              <div key={c} className="chart-bar-row" style={{marginBottom:8}}>
+                <div className="chart-bar-label">{c}</div>
+                <div className="chart-bar-track"><div className="chart-bar-fill" style={{width:`${val/maxVal*100}%`,background:'var(--accent)'}}/></div>
+                <div className="chart-bar-val" style={{fontSize:11}}>{fmt(val)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="table-wrap">
+          <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border)',fontSize:'11px',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'1px'}}>Leads by Industry</div>
+          <div style={{padding:'16px 18px'}}>
+            {byIndustry.map(({i,count})=>(
+              <div key={i} className="chart-bar-row" style={{marginBottom:8}}>
+                <div className="chart-bar-label" style={{width:140}}>{i}</div>
+                <div className="chart-bar-track"><div className="chart-bar-fill" style={{width:`${count/maxInd*100}%`,background:'var(--teal)'}}/></div>
+                <div className="chart-bar-val">{count}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
